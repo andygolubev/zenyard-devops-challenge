@@ -1,0 +1,75 @@
+{{- if and .Values.observability.alerts.enabled .Values.observability.logs.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zenyard.fullname" . }}-grafana-alerting
+  labels:
+    {{- include "zenyard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: alerting
+    grafana_alert: "1"
+data:
+  slow-sql-alert.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: zenyard-slow-sql
+        folder: Zenyard
+        interval: 1m
+        rules:
+          - uid: zenyard-slow-sql
+            title: PostgreSQL slow SQL statements
+            condition: C
+            data:
+              # A — Loki instant query: number of slow-query log lines in the last 10m
+              - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: Loki
+                model:
+                  datasource:
+                    type: loki
+                    uid: Loki
+                  expr: 'sum(count_over_time({namespace="{{ .Release.Namespace }}", pod=~"zenyard-postgresql.*"} |= "duration:" [10m]))'
+                  queryType: instant
+                  refId: A
+              # B — Reduce the series to a single value (required before a threshold)
+              - refId: B
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  type: reduce
+                  reducer: last
+                  expression: A
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  refId: B
+              # C — Threshold: fire when the reduced count is greater than 3
+              - refId: C
+                relativeTimeRange:
+                  from: 600
+                  to: 0
+                datasourceUid: __expr__
+                model:
+                  type: threshold
+                  expression: B
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params:
+                          - 3
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  refId: C
+            noDataState: OK
+            execErrState: Error
+            for: 0s
+            annotations:
+              summary: More than 3 PostgreSQL slow SQL statements occurred in 10 minutes.
+            labels:
+              severity: warning
+{{- end }}

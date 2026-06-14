@@ -1,0 +1,33 @@
+---
+# k3s
+k3s_version: "v1.32.3+k3s1"
+k3s_config_dir: /etc/rancher/k3s
+
+# Helm
+helm_version: "v3.17.2"
+
+# Image
+image_name: "zenyard-api"
+image_tag: "gcp"
+image_tar_local: "/tmp/zenyard-api-gcp.tar"
+image_tar_remote: "/tmp/zenyard-api-gcp.tar"
+
+# Chart
+chart_local_path: "{{ playbook_dir }}/../charts/zenyard"
+remote_chart_path: "/opt/zenyard/chart"
+
+# Kubernetes
+k8s_namespace: "zenyard"
+release_name: "zenyard"
+
+# kubeconfig is set up for the SSH user in the k3s role
+kubeconfig_path: "{{ ansible_env.HOME }}/.kube/config"
+
+# Helm repos needed by the zenyard chart
+helm_repos:
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: grafana
+    url: https://grafana.github.io/helm-charts

@@ -1,0 +1,65 @@
+---
+- name: Show cluster nodes
+  command: kubectl get nodes -o wide
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: nodes_out
+
+- name: Print nodes
+  debug:
+    msg: "{{ nodes_out.stdout_lines }}"
+
+- name: Verify local-path StorageClass
+  command: kubectl get storageclass local-path
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Show all pods
+  command: kubectl get pods -A
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: pods_out
+
+- name: Print pods
+  debug:
+    msg: "{{ pods_out.stdout_lines }}"
+
+- name: Wait for metrics-server to be ready
+  command: kubectl top nodes
+  register: metrics_check
+  retries: "{{ verify_metrics_retries }}"
+  delay: "{{ verify_metrics_delay }}"
+  until: metrics_check.rc == 0
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Print node metrics
+  debug:
+    msg: "{{ metrics_check.stdout_lines }}"
+
+- name: Show Helm releases
+  command: helm list -A
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: helm_out
+
+- name: Print Helm releases
+  debug:
+    msg: "{{ helm_out.stdout_lines }}"
+
+- name: Show ingress (if namespace exists)
+  command: kubectl get ingress -n {{ k8s_namespace }}
+  changed_when: false
+  failed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  register: ingress_out
+
+- name: Print ingress
+  debug:
+    msg: "{{ ingress_out.stdout_lines }}"

@@ -1,0 +1,10 @@
+[gcp]
+# Replace with your GCP VM public IP or hostname
+34.x.x.x ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+[gcp:vars]
+# Optional overrides — defaults live in group_vars/all.yml
+# k3s_version=v1.32.3+k3s1
+# helm_version=v3.17.2
+# image_name=zenyard-api
+# image_tag=gcp

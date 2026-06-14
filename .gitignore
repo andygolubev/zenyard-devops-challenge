@@ -1,0 +1,46 @@
+# OS/editor noise
+.DS_Store
+*.swp
+*.swo
+
+# Python local/cache files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Local environment files
+.env
+.env.*
+
+# Docker/build output
+dist/
+build/
+*.egg-info/
+
+# Helm generated dependencies and local renders
+charts/**/charts/
+*.tgz
+rendered*.yaml
+*-rendered.yaml
+
+# Ansible inventory (user-supplied; .example is committed)
+ansible/inventory.gcp.ini
+
+# Temporary image archives for GCP load
+*.tar
+
+# Plaintext Secret manifests used while sealing — NEVER commit these.
+# Only the encrypted SealedSecret YAML in sealed-secrets/gcp/ is committed.
+sealed-secrets/**/*.plain.yaml
+sealed-secrets/**/*.secret.yaml
+*.unsealed.yaml
+
+# Local scratch/trash
+tmp/
+temp/
+trash/
+.trash/

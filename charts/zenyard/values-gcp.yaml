@@ -1,0 +1,61 @@
+app:
+  image:
+    repository: zenyard-api
+    tag: gcp
+    pullPolicy: IfNotPresent
+
+database:
+  # Credentials come from a Sealed Secret (see sealed-secrets/gcp/zenyard-db.yaml),
+  # not from plaintext values. Keys: DB_USER, DB_PASSWORD.
+  existingSecret: zenyard-db
+
+# Empty host = Traefik matches all incoming requests regardless of Host header.
+# To restrict to a specific IP/hostname: set GCP_HOST=<ip> in make, or set here.
+ingress:
+  host: ""
+
+observability:
+  metrics:
+    enabled: true
+  logs:
+    enabled: true
+  dashboard:
+    enabled: true
+  alerts:
+    enabled: true
+
+# Grafana admin credentials come from the zenyard-grafana Sealed Secret.
+grafana:
+  existingSecret: zenyard-grafana
+
+postgresql:
+  auth:
+    # Credentials come from the zenyard-postgresql Sealed Secret (Bitnami keys:
+    # postgres-password, password). The `password` value matches DB_PASSWORD in
+    # the zenyard-db Sealed Secret so the app can connect.
+    existingSecret: zenyard-postgresql
+  primary:
+    persistence:
+      size: 5Gi
+    extendedConfiguration: |
+      log_min_duration_statement = 1000
+      logging_collector = off
+      log_destination = 'stderr'
+      log_line_prefix = '%m [%p] %u@%d '
+      log_statement = 'none'
+
+kube-prometheus-stack:
+  grafana:
+    # Admin credentials sourced from the zenyard-grafana Sealed Secret.
+    admin:
+      existingSecret: zenyard-grafana
+      userKey: admin-user
+      passwordKey: admin-password
+  prometheus:
+    prometheusSpec:
+      retention: 6h
+  prometheusOperator:
+    tls:
+      enabled: false
+    admissionWebhooks:
+      enabled: false

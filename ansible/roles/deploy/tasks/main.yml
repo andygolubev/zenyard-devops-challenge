@@ -1,0 +1,54 @@
+---
+- name: Create remote chart directory
+  file:
+    path: "{{ remote_chart_path }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  become: true
+
+- name: Sync chart to VM
+  synchronize:
+    src: "{{ chart_local_path }}/"
+    dest: "{{ remote_chart_path }}"
+    delete: true
+    rsync_opts:
+      - "--exclude=.git"
+
+- name: Add Helm repositories
+  command: helm repo add {{ item.name }} {{ item.url }}
+  loop: "{{ helm_repos }}"
+  register: repo_add_result
+  changed_when: "'already exists' not in repo_add_result.stdout"
+  failed_when:
+    - repo_add_result.rc != 0
+    - "'already exists' not in repo_add_result.stderr"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Update Helm repositories
+  command: helm repo update
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Run helm dependency update on VM
+  command: helm dependency update {{ remote_chart_path }}
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Deploy zenyard Helm release
+  command: >
+    helm upgrade --install {{ release_name }} {{ remote_chart_path }}
+    --namespace {{ k8s_namespace }}
+    --create-namespace
+    --values {{ remote_chart_path }}/values-gcp.yaml
+    --set app.image.repository={{ image_name }}
+    --set app.image.tag={{ image_tag }}
+    --set app.image.pullPolicy=IfNotPresent
+    {% if helm_wait %}--wait{% endif %}
+    --timeout {{ helm_deploy_timeout }}
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"

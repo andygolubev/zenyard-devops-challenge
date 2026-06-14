@@ -1,0 +1,115 @@
+---
+- name: Add Sealed Secrets Helm repository
+  command: helm repo add {{ sealed_secrets_chart_repo_name }} {{ sealed_secrets_chart_repo_url }}
+  tags: [ss-install]
+  register: ss_repo_add
+  changed_when: "'already exists' not in ss_repo_add.stdout"
+  failed_when:
+    - ss_repo_add.rc != 0
+    - "'already exists' not in ss_repo_add.stderr"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Update Helm repositories
+  command: helm repo update
+  tags: [ss-install]
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Install/upgrade the Sealed Secrets controller
+  tags: [ss-install]
+  command: >
+    helm upgrade --install {{ sealed_secrets_release_name }} {{ sealed_secrets_chart_name }}
+    --namespace {{ sealed_secrets_namespace }}
+    --create-namespace
+    --version {{ sealed_secrets_chart_version }}
+    --wait
+    --timeout 5m
+  register: ss_install
+  changed_when: "'has been upgraded' in ss_install.stdout or 'has been installed' in ss_install.stdout"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Wait for the Sealed Secrets controller to be Available
+  tags: [ss-install]
+  command: >
+    kubectl rollout status deployment/{{ sealed_secrets_release_name }}
+    -n {{ sealed_secrets_namespace }} --timeout=180s
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Check whether the kubeseal CLI is installed on the VM
+  stat:
+    path: "{{ kubeseal_bin }}"
+  tags: [ss-install]
+  register: kubeseal_stat
+
+- name: Install the kubeseal CLI on the VM
+  become: true
+  tags: [ss-install]
+  unarchive:
+    src: "{{ kubeseal_download_url }}"
+    dest: /usr/local/bin
+    remote_src: true
+    include:
+      - kubeseal
+    mode: "0755"
+  when: not kubeseal_stat.stat.exists
+
+- name: Ensure target namespace exists for unsealed Secrets
+  command: kubectl create namespace {{ sealed_secrets_target_namespace }}
+  tags: [ss-apply]
+  register: ss_ns
+  changed_when: "'created' in ss_ns.stdout"
+  failed_when:
+    - ss_ns.rc != 0
+    - "'AlreadyExists' not in ss_ns.stderr"
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+
+- name: Find committed SealedSecret manifests
+  find:
+    paths: "{{ sealed_secrets_src_dir }}"
+    patterns: "*.yaml,*.yml"
+  delegate_to: localhost
+  become: false
+  tags: [ss-apply]
+  register: ss_manifests
+
+- name: Warn if no SealedSecret manifests are present
+  tags: [ss-apply]
+  debug:
+    msg: >
+      No SealedSecret manifests found in {{ sealed_secrets_src_dir }}.
+      Run `make gcp-seal-secrets` against this cluster first, then rerun the deploy.
+  when: ss_manifests.matched | int == 0
+
+- name: Ensure the remote staging directory exists
+  file:
+    path: "{{ sealed_secrets_remote_dir }}"
+    state: directory
+    mode: "0700"
+  tags: [ss-apply]
+  when: ss_manifests.matched | int > 0
+
+- name: Stage SealedSecret manifests on the VM
+  tags: [ss-apply]
+  copy:
+    src: "{{ item.path }}"
+    dest: "{{ sealed_secrets_remote_dir }}/{{ item.path | basename }}"
+    mode: "0644"
+  loop: "{{ ss_manifests.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: ss_manifests.matched | int > 0
+
+- name: Apply SealedSecret manifests
+  command: kubectl apply -f {{ sealed_secrets_remote_dir }}
+  tags: [ss-apply]
+  register: ss_apply
+  changed_when: "'configured' in ss_apply.stdout or 'created' in ss_apply.stdout"
+  when: ss_manifests.matched | int > 0
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"

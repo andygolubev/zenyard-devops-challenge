@@ -1,0 +1,205 @@
+app:
+  replicaCount: 1
+  image:
+    repository: zenyard-api
+    tag: local
+    pullPolicy: IfNotPresent
+  port: 8000
+  logLevel: INFO
+  resources:
+    requests:
+      cpu: 50m
+      memory: 96Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  podSecurityContext:
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+
+database:
+  host: zenyard-postgresql
+  port: 5432
+  name: zenyard
+  username: zenyard
+  password: zenyard-local-password
+  existingSecret: ""
+  secretKeys:
+    username: DB_USER
+    password: DB_PASSWORD
+  slowQueryThresholdMs: 1000
+
+ingress:
+  enabled: true
+  className: traefik
+  host: localhost
+  path: /
+  pathType: Prefix
+
+observability:
+  metrics:
+    enabled: true
+  logs:
+    enabled: true
+  dashboard:
+    enabled: true
+  alerts:
+    enabled: true
+
+grafana:
+  adminPassword: zenyard-local-admin
+  existingSecret: ""
+
+networkPolicy:
+  enabled: true
+
+postgresql:
+  enabled: true
+  fullnameOverride: zenyard-postgresql
+  architecture: standalone
+  auth:
+    username: zenyard
+    password: zenyard-local-password
+    database: zenyard
+  primary:
+    service:
+      type: ClusterIP
+    persistence:
+      enabled: true
+      storageClass: local-path
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    extendedConfiguration: |
+      log_min_duration_statement = 1000
+      logging_collector = off
+      log_destination = 'stderr'
+      log_line_prefix = '%m [%p] %u@%d '
+      log_statement = 'none'
+  metrics:
+    enabled: true
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    serviceMonitor:
+      enabled: true
+      namespace: zenyard
+
+kube-prometheus-stack:
+  fullnameOverride: zenyard-kube-prometheus
+  defaultRules:
+    create: true
+  alertmanager:
+    enabled: true
+  grafana:
+    enabled: true
+    fullnameOverride: zenyard-grafana
+    adminPassword: zenyard-local-admin
+    defaultDashboardsEnabled: false
+    service:
+      type: ClusterIP
+    sidecar:
+      alerts:
+        enabled: true
+        label: grafana_alert
+        labelValue: "1"
+        searchNamespace: ALL
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        labelValue: "1"
+        searchNamespace: ALL
+      datasources:
+        enabled: true
+    additionalDataSources:
+      - name: Loki
+        uid: Loki
+        type: loki
+        access: proxy
+        url: http://zenyard-loki:3100
+        isDefault: false
+  prometheus:
+    prometheusSpec:
+      retention: 2h
+      scrapeInterval: 30s
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      resources:
+        requests:
+          cpu: 150m
+          memory: 384Mi
+        limits:
+          cpu: 750m
+          memory: 1Gi
+  prometheusOperator:
+    admissionWebhooks:
+      enabled: false
+      patch:
+        enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+loki-stack:
+  loki:
+    enabled: true
+    fullnameOverride: zenyard-loki
+    isDefault: false
+    persistence:
+      enabled: false
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 512Mi
+  promtail:
+    enabled: true
+    config:
+      clients:
+        - url: http://zenyard-loki:3100/loki/api/v1/push
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        cpu: 150m
+        memory: 128Mi
+  grafana:
+    enabled: false
+    sidecar:
+      datasources:
+        enabled: false
+  prometheus:
+    enabled: false
+  fluent-bit:
+    enabled: false
+  filebeat:
+    enabled: false
+  logstash:
+    enabled: false

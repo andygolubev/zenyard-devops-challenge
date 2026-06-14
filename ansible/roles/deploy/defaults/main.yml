@@ -1,0 +1,9 @@
+---
+k8s_namespace: "zenyard"
+release_name: "zenyard"
+chart_local_path: "{{ playbook_dir }}/../charts/zenyard"
+remote_chart_path: "/opt/zenyard/chart"
+image_name: "zenyard-api"
+image_tag: "gcp"
+helm_deploy_timeout: "15m"
+helm_wait: true

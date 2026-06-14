@@ -1,0 +1,67 @@
+{{- if .Values.observability.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zenyard.fullname" . }}-db-dashboard
+  labels:
+    {{- include "zenyard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+    grafana_dashboard: "1"
+data:
+  zenyard-db-dashboard.json: |
+    {
+      "uid": "zenyard-db",
+      "title": "Zenyard Database Activity",
+      "tags": ["zenyard", "postgresql"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Queries per second",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "targets": [
+            {
+              "expr": "sum(rate(pg_stat_database_xact_commit{datname=\"{{ .Values.database.name }}\"}[5m]) + rate(pg_stat_database_xact_rollback{datname=\"{{ .Values.database.name }}\"}[5m]))",
+              "legendFormat": "transactions"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "Mean query latency",
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+          "targets": [
+            {
+              "expr": "avg(rate(pg_stat_database_blk_read_time{datname=\"{{ .Values.database.name }}\"}[5m]) + rate(pg_stat_database_blk_write_time{datname=\"{{ .Values.database.name }}\"}[5m]))",
+              "legendFormat": "block io ms/s"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "DB pod CPU",
+          "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+          "targets": [
+            {
+              "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"{{ .Release.Namespace }}\",pod=~\"zenyard-postgresql.*\",container!=\"\"}[5m]))",
+              "legendFormat": "{{`{{pod}}`}}"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "DB pod memory",
+          "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+          "targets": [
+            {
+              "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"{{ .Release.Namespace }}\",pod=~\"zenyard-postgresql.*\",container!=\"\"})",
+              "legendFormat": "{{`{{pod}}`}}"
+            }
+          ]
+        }
+      ]
+    }
+{{- end }}

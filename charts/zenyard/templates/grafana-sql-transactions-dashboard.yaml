@@ -1,0 +1,71 @@
+{{- if and .Values.observability.dashboard.enabled .Values.observability.logs.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zenyard.fullname" . }}-sql-transactions-dashboard
+  labels:
+    {{- include "zenyard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dashboard
+    grafana_dashboard: "1"
+data:
+  zenyard-sql-transactions-dashboard.json: |
+    {
+      "uid": "zenyard-sql-tx",
+      "title": "Zenyard SQL Transactions",
+      "tags": ["zenyard", "postgresql", "logs"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Slow SQL statements (>1s)",
+          "description": "Count of PostgreSQL statements exceeding 1s over a trailing 10-minute window. Same selector and window as the zenyard-slow-sql alert.",
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+          "fieldConfig": {"defaults": {"custom": {"drawStyle": "bars", "fillOpacity": 30}}, "overrides": []},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "Loki"},
+              "queryType": "range",
+              "expr": "sum(count_over_time({namespace=\"{{ .Release.Namespace }}\", pod=~\"zenyard-postgresql.*\"} |= \"duration:\" [10m]))",
+              "legendFormat": "slow statements (10m window)"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "title": "Top slow statements",
+          "description": "Most frequent slow statements in the selected range, grouped by extracted statement text.",
+          "gridPos": {"x": 0, "y": 8, "w": 24, "h": 8},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "Loki"},
+              "queryType": "instant",
+              "expr": "topk(10, sum by (statement) (count_over_time({namespace=\"{{ .Release.Namespace }}\", pod=~\"zenyard-postgresql.*\"} |= \"duration:\" | pattern `<_>statement: <statement>` [$__range])))"
+            }
+          ],
+          "transformations": [
+            {"id": "labelsToFields", "options": {}},
+            {"id": "organize", "options": {"excludeByName": {"Time": true}}},
+            {"id": "sortBy", "options": {"fields": {}, "sort": [{"field": "Value", "desc": true}]}}
+          ]
+        },
+        {
+          "type": "logs",
+          "title": "Recent slow SQL statements",
+          "description": "Raw PostgreSQL slow-query log lines (timestamp, duration, SQL text) for the selected range.",
+          "gridPos": {"x": 0, "y": 16, "w": 24, "h": 10},
+          "options": {"showTime": true, "sortOrder": "Descending", "wrapLogMessage": true, "enableLogDetails": true},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "Loki"},
+              "queryType": "range",
+              "expr": "{namespace=\"{{ .Release.Namespace }}\", pod=~\"zenyard-postgresql.*\"} |= \"duration:\""
+            }
+          ]
+        }
+      ]
+    }
+{{- end }}

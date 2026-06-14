@@ -1,0 +1,5 @@
+---
+k8s_namespace: "zenyard"
+release_name: "zenyard"
+verify_metrics_retries: 24
+verify_metrics_delay: 10

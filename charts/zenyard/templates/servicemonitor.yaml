@@ -1,0 +1,20 @@
+{{- if and .Values.observability.metrics.enabled .Values.postgresql.metrics.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "zenyard.fullname" . }}-postgresql
+  labels:
+    {{- include "zenyard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: metrics
+      interval: 30s
+{{- end }}

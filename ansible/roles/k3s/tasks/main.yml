@@ -1,0 +1,62 @@
+---
+- name: Check if k3s is already installed
+  stat:
+    path: "{{ k3s_bin }}"
+  register: k3s_bin_stat
+
+- name: Install k3s
+  shell: |
+    curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION={{ k3s_version }} sh -
+  become: true
+  when: not k3s_bin_stat.stat.exists
+
+- name: Ensure k3s service is enabled and running
+  systemd:
+    name: k3s
+    enabled: true
+    state: started
+  become: true
+
+- name: Wait for k3s API to become ready
+  command: k3s kubectl get nodes
+  register: api_ready
+  retries: "{{ k3s_api_ready_retries }}"
+  delay: "{{ k3s_api_ready_delay }}"
+  until: api_ready.rc == 0
+  become: true
+  changed_when: false
+
+- name: Wait for node to reach Ready state
+  command: k3s kubectl wait --for=condition=Ready node --all --timeout={{ k3s_node_ready_timeout }}s
+  become: true
+  changed_when: false
+
+- name: Create .kube directory for SSH user
+  file:
+    path: "{{ ansible_env.HOME }}/.kube"
+    state: directory
+    mode: "0700"
+
+- name: Copy k3s kubeconfig for SSH user
+  copy:
+    src: "{{ k3s_config_dir }}/k3s.yaml"
+    dest: "{{ ansible_env.HOME }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  become: true
+
+- name: Set KUBECONFIG in user profile
+  lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: 'export KUBECONFIG={{ kubeconfig_path }}'
+    create: true
+    mode: "0644"
+
+- name: Verify kubectl works without sudo
+  command: kubectl get nodes
+  register: kubectl_check
+  changed_when: false
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"

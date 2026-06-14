@@ -1,0 +1,38 @@
+---
+- name: Build Docker image for linux/amd64
+  command: docker build --platform linux/amd64 -t {{ image_name }}:{{ image_tag }} {{ image_app_dir }}
+  delegate_to: localhost
+  become: false
+
+- name: Save Docker image to local tar
+  command: docker save {{ image_name }}:{{ image_tag }} -o {{ image_tar_local }}
+  delegate_to: localhost
+  become: false
+
+- name: Copy image tar to VM
+  copy:
+    src: "{{ image_tar_local }}"
+    dest: "{{ image_tar_remote }}"
+    mode: "0644"
+
+- name: Import image into k3s containerd
+  command: k3s ctr images import {{ image_tar_remote }}
+  become: true
+
+- name: Verify image is present in containerd
+  shell: k3s ctr images list | grep "{{ image_name }}:{{ image_tag }}"
+  become: true
+  changed_when: false
+
+- name: Remove remote image tar
+  file:
+    path: "{{ image_tar_remote }}"
+    state: absent
+  become: true
+
+- name: Remove local image tar
+  file:
+    path: "{{ image_tar_local }}"
+    state: absent
+  delegate_to: localhost
+  become: false

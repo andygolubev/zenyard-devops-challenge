@@ -1,0 +1,4 @@
+---
+helm_version: "v3.17.2"
+helm_bin: /usr/local/bin/helm
+helm_install_script_url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3

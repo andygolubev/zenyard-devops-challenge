@@ -1,0 +1,10 @@
+---
+# GCP-specific overrides
+# The kubeconfig user matches the SSH user; ansible_user is set in inventory
+kubeconfig_path: "/home/{{ ansible_user }}/.kube/config"
+
+# Sealed Secrets controller (Bitnami). Keeps credentials out of git in plaintext
+# and out of a cloud secret manager. See sealed-secrets/README.md.
+sealed_secrets_namespace: "sealed-secrets"
+sealed_secrets_release_name: "sealed-secrets"
+sealed_secrets_chart_version: "2.16.2"

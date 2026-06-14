@@ -1,0 +1,43 @@
+app:
+  image:
+    repository: zenyard-api
+    tag: local
+    pullPolicy: IfNotPresent
+
+database:
+  password: zenyard-local-password
+  slowQueryThresholdMs: 1000
+
+ingress:
+  host: localhost
+  path: /
+
+observability:
+  metrics:
+    enabled: true
+  logs:
+    enabled: true
+  dashboard:
+    enabled: true
+  alerts:
+    enabled: true
+
+grafana:
+  adminPassword: zenyard-local-admin
+
+postgresql:
+  auth:
+    password: zenyard-local-password
+  primary:
+    persistence:
+      size: 1Gi
+    extendedConfiguration: |
+      log_min_duration_statement = 1000
+      logging_collector = off
+      log_destination = 'stderr'
+      log_line_prefix = '%m [%p] %u@%d '
+      log_statement = 'none'
+
+kube-prometheus-stack:
+  grafana:
+    adminPassword: zenyard-local-admin

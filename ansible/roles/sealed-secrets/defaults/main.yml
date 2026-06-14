@@ -1,0 +1,23 @@
+---
+# Bitnami Sealed Secrets controller
+sealed_secrets_namespace: "sealed-secrets"
+sealed_secrets_release_name: "sealed-secrets"
+sealed_secrets_chart_repo_name: "sealed-secrets"
+sealed_secrets_chart_repo_url: "https://bitnami-labs.github.io/sealed-secrets"
+sealed_secrets_chart_name: "sealed-secrets/sealed-secrets"
+# Pin the controller chart for reproducibility; keep the kubeseal CLI in sync.
+sealed_secrets_chart_version: "2.16.2"
+
+# kubeseal CLI installed on the VM (used by `make gcp-seal-secrets`). Match the
+# controller's app version that the chart above ships.
+kubeseal_version: "0.27.1"
+kubeseal_bin: "/usr/local/bin/kubeseal"
+kubeseal_download_url: "https://github.com/bitnami-labs/sealed-secrets/releases/download/v{{ kubeseal_version }}/kubeseal-{{ kubeseal_version }}-linux-amd64.tar.gz"
+
+# Directory of committed SealedSecret manifests to apply (on the control machine).
+sealed_secrets_src_dir: "{{ playbook_dir }}/../sealed-secrets/gcp"
+# Where the manifests are staged on the VM before kubectl apply.
+sealed_secrets_remote_dir: "/tmp/zenyard-sealed-secrets"
+
+# Namespace the unsealed Secrets are created in (matches the app namespace).
+sealed_secrets_target_namespace: "{{ k8s_namespace }}"

@@ -1,0 +1,6 @@
+---
+image_name: "zenyard-api"
+image_tag: "gcp"
+image_tar_local: "/tmp/zenyard-api-gcp.tar"
+image_tar_remote: "/tmp/zenyard-api-gcp.tar"
+image_app_dir: "{{ playbook_dir }}/../app"
